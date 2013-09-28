@@ -1,0 +1,43 @@
+{
+  "AcceptedLinkTypes": [
+		"playlist"
+	],
+    "AppDescription": {
+		    "en": "Generate genre based playlist"
+	  },
+	  "AppIcon": {
+		    "36x18": "tutorial.png"
+	  },
+	  "AppName": {
+		    "en": "Genre Playlists"
+	  },
+	  "BundleIdentifier": "genre",
+	  "BundleType": "Application",
+	  "BundleVersion": "0.1",
+	  "DefaultTabs": [
+		    {
+			      "arguments": "index",
+			      "title": {
+				        "en": "Home"
+		        }
+		    },
+		    {
+		        "arguments": "tabs",
+			      "title": {
+				        "en": "How to use tabs"
+			      }
+        }
+	  ],
+	  "Dependencies": {
+	      "api": "1.0.0",
+	      "views": "1.0.0"
+    },
+	  "RequiredInterface": 1,
+	  "RequiredPermissions": [  
+        "http://developer.echonest.com"
+	  ],
+	  "SupportedLanguages": [
+		    "en"
+	  ],
+	  "VendorIdentifier": "e.portin"
+}
