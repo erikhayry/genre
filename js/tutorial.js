@@ -23,61 +23,179 @@ require([
 
         var App = angular.module('genreApp', []);
 
-        App.controller('appController', function($scope, $log, genreFactory, trackFactory) {
+        App.controller('appController', function($scope, $log, $q, trackFactory, genreFactory) {
+            
+            trackFactory.getStarredTracks()
+                .then(function(artists) {
+                    var deferred = $q.defer();                    
+                    for (var i = 0; i < 5; i++) {
+                        var _i = i;
+                        genreFactory.getGenres(artists[i], _i).then(function(index){
+                            console.log(index)
+                            if(index === 4) {
+                                console.log('done');
+                                deferred.resolve();
+                            }
+                        });
+                    };
+                    return deferred.promise;
 
-
-            console.log('start')
-
-            trackFactory.getStarredTracks().done(function(){
-                console.log(trackFactory.getArtists())
-                var getPromise = genreFactory.getGenres('0UOrN3LNaKApiOSdvJiETl');
-                // Notice that we're getting a single promise back but we're hooking up multiple different things to it (via a
-                // call to .then() and assigning it to a $scope value. Try that with a regular callback...
-                getPromise.then(function (response) {
-                    $log.log("Success", response.response.artist);
-                    $scope.test = response.response.artist.name;
-                }, function (response) {
-                  $log.log("Error", response);
-                });
-            });
-
-
+                })
+                .then(function(what){
+                    console.log('after')
+                }); 
         });
+        App.service('localStorageFactory', function(){
+            factory = {
+                /*
+                data: Object
+                    response: Object
+                        artist: Object
+                            genres: []
+                */
+                getArtistGenres : function(artistId){
+                    var genreArr = [];
 
-        App.service('genreFactory', function($http){
-            var _genres = {},
-                factory = {
-                getGenres : function(artistId){
-                    var getURL = 'http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:' + artistId + '&bucket=genre'
-                    return $http.get(getURL, {
-                      "params": {
-                        "callback": "JSON_CALLBACK"
-                      }}).then(
-                        function (response) {
-                          // In this case we'll dig out the value we actually want and use that to resolve the promise which .then()
-                          // has created for us.
-                          return response.data;
-                        }
-                    );
+                    for (var genre in _genres) {
+                        for (var i = 0; i < _genres[genre].artists.length; i++) {
+                            console.log(_genres[genre].toString())
+                            if(_genres[genre].artists[i] == artistId) genreArr.push(_genres[genre].toString());
+                        };
+                    };
+
+                    return genreArr;
                 }
-            };
+            }
+            return factory;
+
+        })
+
+        App.service('genreFactory', function($http, $q, trackFactory){
+
+
+            var _genres = {},
+
+                _init = function(){
+                    console.log('init genreFactory');
+                    var _oldGenres = JSON.parse(localStorage.getItem('genres'));
+                    _genres = _oldGenres || {};
+                    console.log(_genres)
+                },
+
+                _saveGenres = function(){
+                    localStorage.setItem('genres', JSON.stringify(_genres));
+                },
+                _update = function(artistId, genre){
+                    trackFactory.addGenre(artistId, genre);    
+                },
+                factory = {
+                    /*
+                    data: Object
+                        response: Object
+                            artist: Object
+                                genres: []
+                    */
+                    getArtistGenres : function(artistId){
+                        var genreArr = [];
+
+                        for (var genre in _genres) {
+                            for (var i = 0; i < _genres[genre].artists.length; i++) {
+                                if(_genres[genre].artists[i] == artistId) {
+                                    genreArr.push(genre.toString());
+                                    _update(artistId, genre)
+                                    break;
+                                }
+                            };
+                        };
+                        _saveGenres();
+
+
+                        return genreArr;
+                    },
+
+                    getGenres : function(artistId, i){
+                        if(factory.getArtistGenres(artistId).length > 0){
+                            var deferred = $q.defer();
+                            deferred.resolve(i);
+                            return deferred.promise;
+                        }
+                        else{
+                            var getURL = 'http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:' + artistId + '&bucket=genre'
+                            return $http.get(getURL).then(function(data){
+                                if(data.data.response.artist){
+                                    var genresData = data.data.response.artist.genres;
+                                    for(var j = 0; j < genresData.length; j++){  
+                                        var genre = genresData[j].name;
+                                        genre = genre.split(" ").join("_");
+                                            
+                                        if(!_genres.hasOwnProperty(genre)) {
+                                            _genres[genre] = {
+                                                'count' : 1,
+                                                'artists' : [artistId],
+                                                'tracks' : []  
+                                            }
+                                        }
+
+                                        else{
+                                            _genres[genre].count = _genres[genre].count + 1;
+                                            _genres[genre].artists.push(artistId)
+                                        }
+                                    }
+                                }
+                                _genres[genre].tracks = _genres[genre].tracks.concat(trackFactory.getTracks(artistId));
+                                _update(artistId, genre);
+                                _saveGenres();
+    
+                                return i;
+                            })
+                        }
+                    }
+                }
+
+                _init();
+
             return factory;
         });
 
-        App.service('trackFactory', function(){
+        App.service('trackFactory', function($q, $rootScope){
+
+/*          var foo = localStorage.getItem("bar");
+            localStorage.setItem("bar", foo);*/
+
             var _library = Library.forCurrentUser(),
                 _artists = {},
                 _artistArr = [],
+
+                _init = function(){
+                    console.log('init trackFactory')
+                },
+
+                _saveArtists = function(){
+                    localStorage.setItem('artist', JSON.stringify(_artists));
+                    console.log('saved artists to localstorage')
+                },
+                
                 factory = {
-                    getArtists : function(){
-                        return _artists;
+                    addGenre : function(artistId, genre){
+                        _artists[artistId].genres.push(genre);
+                        _saveArtists();
+                    },
+                    getTracks : function(artistId){
+                        return _artists[artistId].tracks
+                    },
+                    getArtistsArray : function(){
+                        return _artistArr;
+                    },
+                    getArtistsArrayFromLocalStorage : function(){
+
                     },
                     getStarredTracks : function(){
+                    var deferred = $q.defer();
                         /*
                             Would rather use starred property but is of type Playlist rather than Collection and therefor doesn't support snapshot() 
                         */
-                        return _library.tracks.snapshot().done(function(snapshot) {
-                            for (var i = 0; i < 20; i++) {
+                        _library.tracks.snapshot().done(function(snapshot) {
+                            for (var i = 0; i < snapshot.length; i++) {
                                 snapshot.get(i).load('name').done(function(track) {
                                     if(track.starred){
                                         var trackUri = track.uri; //spotify:track:TRACKID
@@ -85,40 +203,47 @@ require([
                                         var artistsData =  track.artists;
                                         
                                         for(var j = 0; j < artistsData.length; j++){  
-                                          var artistUrl = artistsData[j].uri; //spotify:artist:ARTISTID
-                                          artistUrl = artistUrl.substr(artistUrl.lastIndexOf(':') + 1); //ARTISTID
-                                                
-                                          if(!_artists.hasOwnProperty(artistUrl)) {
-                                            _artists[artistUrl] = {
-                                            'count' : 1,
-                                            'tracks' : [trackUri],
-                                            'genres' : [],
-                                            'name' : artistsData[j].name   
+                                            var artistUrl = artistsData[j].uri; //spotify:artist:ARTISTID
+                                            if(artistUrl.indexOf('local') < 0){
+                                                artistUrl = artistUrl.substr(artistUrl.lastIndexOf(':') + 1); //ARTISTID
+
+                                                if(!_artists.hasOwnProperty(artistUrl)) {
+                                                    _artists[artistUrl] = {
+                                                        'count' : 1,
+                                                        'tracks' : [trackUri],
+                                                        'genres' : [],
+                                                        'name' : artistsData[j].name   
+                                                    }
+                                                    _artistArr.push(artistUrl)
+                                                }
+
+                                                else{
+                                                    _artists[artistUrl].count = _artists[artistUrl].count + 1;
+                                                    _artists[artistUrl].tracks.push(trackUri);
+                                                }
                                             }
-                                            _artistArr.push(artistUrl)
-                                          }
-                                            
-                                          else{
-                                            _artists[artistUrl].count = _artists[artistUrl].count + 1;
-                                            _artists[artistUrl].tracks.push(trackUri);
-                                          }
                                         }  
                                     }              
                                 });
                             }
-                        }).done(
-                            function (response) {
-                              // In this case we'll dig out the value we actually want and use that to resolve the promise which .then()
-                              // has created for us.
-                              return response.data;
-                            }
-                        );
+                            console.log('loop done')
+                        }).done(function(){
+                            _saveArtists();
+
+                            $rootScope.$apply(function(){
+                                deferred.resolve(factory.getArtistsArray());
+                            })
+                        });
+                        return deferred.promise;;
                     }
             }
+
+            _init();
+
             return factory;
         }); 
-       
 
+    
         angular.bootstrap(document.body , ['genreApp']); 
         
 
