@@ -28,11 +28,11 @@ require([
             trackFactory.getStarredTracks()
                 .then(function(artists) {
                     var deferred = $q.defer();                    
-                    for (var i = 0; i < 5; i++) {
+                    for (var i = 0; i < 150; i++) {
                         var _i = i;
                         genreFactory.getGenres(artists[i], _i).then(function(index){
                             console.log(index)
-                            if(index === 4) {
+                            if(index === 149) {
                                 console.log('done');
                                 deferred.resolve();
                             }
@@ -124,7 +124,7 @@ require([
                             return $http.get(getURL).then(function(data){
                                 if(data.data.response.artist){
                                     var genresData = data.data.response.artist.genres;
-                                    for(var j = 0; j < genresData.length; j++){  
+                                    for(var j = 0; j < genresData.length; j++){
                                         var genre = genresData[j].name;
                                         genre = genre.split(" ").join("_");
                                             
@@ -141,10 +141,14 @@ require([
                                             _genres[genre].artists.push(artistId)
                                         }
                                     }
+                                    // if no genre found empty array returned. Therefore need to test if genre was created.
+                                    if(_genres[genre]){
+                                        _genres[genre].tracks = _genres[genre].tracks.concat(trackFactory.getTracks(artistId));
+                                        _update(artistId, genre);
+                                        _saveGenres();                                        
+                                    } 
                                 }
-                                _genres[genre].tracks = _genres[genre].tracks.concat(trackFactory.getTracks(artistId));
-                                _update(artistId, genre);
-                                _saveGenres();
+                                
     
                                 return i;
                             })
