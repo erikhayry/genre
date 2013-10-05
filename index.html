@@ -11,8 +11,41 @@
         </style>
     </head>
     <body ng-app="genreApp">
+
+    <div id="playlist-metadata"></div>
+
         <div ng-controller="appController">
-            {{test}}
+            <div class="m-search-bar">
+                <input type="text" ng-model="query" placeholder="Enter a genre here">
+                <button class="m-button-primary" ng-click="buildPlaylist(checkedGenres)">Create playlist</button>    
+
+            </div>
+
+            <div class="m-selected-genres">
+                <h2>Current selection</h2>
+                <div ng-repeat="genre in (checkedGenres = (genreArr | filter: {checked : 'true'}))">
+                    <label for="selected-{{genre.id}}">{{genre.name}}</label><input 
+                                                                        id="selected-{{genre.id}}"
+                                                                        type="checkbox" 
+                                                                        ng-model="genre.checked" 
+                                                                        ng-true-value="true" 
+                                                                        ng-false-value="false"> 
+                </div>
+            </div>
+
+            <div class="m-search-result">
+                <h2>Genres</h2>
+                <button class="m-button-primary" ng-click="selectAll(visibleGenres)">Select All</button>
+                <button class="m-button-primary" ng-click="unselectAll(visibleGenres)">Un-select All</button>
+                {{status}}
+                <div ng-repeat="genre in (visibleGenres = (genreArr | filter : query))">
+                    <label for="{{genre.id}}">{{genre.name}}</label><input id="{{genre.id}}" type="checkbox" ng-model="genre.checked"  ng-true-value="true"  ng-false-value="false"> 
+                </div>
+            </div>
+
+
+
+
         </div><!-- /wrapper -->
         <script src="sp://genre/js/tutorial.js"></script>
     </body>

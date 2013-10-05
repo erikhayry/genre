@@ -23,17 +23,75 @@ require([
 
         var App = angular.module('genreApp', []);
 
-        App.controller('appController', function($scope, $log, $q, trackFactory, genreFactory) {
+        App.controller('appController', function($scope, $log, $q, artistFactory, genreFactory) {
+            var _artists = {},
+                _genres = {},
+                _buildPlayList = function(genres){
+                    console.log('build')
+                    var artistsAdded = {};
+
+
+                    models.Playlist.create('genre playlist [' + genres[0].name + ']').done(function(playlist) {
+                        models.Playlist.fromURI(playlist.uri)
+                        .load(['tracks'])
+                        .done(function(p){
+                            for (var i = 0; i < genres.length; i++) {
+                                var artists = _genres[genres[i].id].artists;
+                                for (var j = 0; j < artists.length; j++) {
+                                    if(!artistsAdded.hasOwnProperty(artists[j])){
+                                        var tracks = _artists[artists[j]].tracks;
+                                        for (var k = 0; k < tracks.length; k++) {
+                                            var track = models.Track.fromURI('spotify:track:' + tracks[k]);
+                                            p.tracks.add(track)
+                                        };
+                                        artistsAdded[artists[j]] = 'added';                                
+                                    }
+
+                                };
+                            };
+                        })
+                    });
+
+                },
+                _unselectAll = function(genres){
+                    for (var i = 0; i < $scope.genreArr.length; i++) {
+                        for (var j = 0; j < genres.length; j++) {
+                            if($scope.genreArr[i] == genres[j]){
+                                $scope.genreArr[i].checked = 'false';
+                                break;
+                            }
+                        };
+                    }
+                },
+                _selectAll = function(genres){
+                    console.log(genres)
+                    for (var i = 0; i < $scope.genreArr.length; i++) {
+                        for (var j = 0; j < genres.length; j++) {
+                            if($scope.genreArr[i] == genres[j]){
+                                $scope.genreArr[i].checked = 'true';
+                                break;
+                            }
+                        };
+                    }
+                }
             
-            trackFactory.getStarredTracks()
+            $scope.buildPlaylist = _buildPlayList;    
+            $scope.selectAll = _selectAll;    
+            $scope.unselectAll = _unselectAll;
+
+            $scope.status = 'Loading genres...';
+
+            artistFactory.getStarredTracks()
                 .then(function(artists) {
-                    var deferred = $q.defer();                    
-                    for (var i = 0; i < 150; i++) {
+                    var deferred = $q.defer();
+
+                    //get genres for X first artists
+                    var size = artists.length;                    
+                    for (var i = 0; i < size; i++) {
                         var _i = i;
+                        $scope.status = 'Loading genres... ' + _i + '/ 160';
                         genreFactory.getGenres(artists[i], _i).then(function(index){
-                            console.log(index)
-                            if(index === 149) {
-                                console.log('done');
+                            if(index === size - 1) {
                                 deferred.resolve();
                             }
                         });
@@ -41,53 +99,88 @@ require([
                     return deferred.promise;
 
                 })
+                /*.then(function(){
+                    console.log('get undefined')
+                    var deferred = $q.defer(),
+                        undefinedArtists = genreFactory.getUndefinedArtists();
+
+                    //get genres for X first artists                    
+                    for (var i = 0; i < 5; i++) {
+                        var _i = i;
+                        genreFactory.getGenresFromEchoNest(undefinedArtists[i], _i).then(function(index){
+                            if(index === 5 - 1) {
+                                deferred.resolve();
+                            }
+                        });
+                    };
+                    return deferred.promise;
+                })*/
                 .then(function(what){
-                    console.log('after')
+                    console.log('got all data');
+                    $scope.status = ''
+                    //got all data. Let's start assign variables to the scope.
+
+                    _artists = artistFactory.getArtists(),
+                    _genres = genreFactory.getGenresObject();
+
+                    var genreArr = genreFactory.getGenreArr();
+                    $scope.genreArr = genreArr;
                 }); 
         });
-        App.service('localStorageFactory', function(){
-            factory = {
-                /*
-                data: Object
-                    response: Object
-                        artist: Object
-                            genres: []
-                */
-                getArtistGenres : function(artistId){
-                    var genreArr = [];
 
-                    for (var genre in _genres) {
-                        for (var i = 0; i < _genres[genre].artists.length; i++) {
-                            console.log(_genres[genre].toString())
-                            if(_genres[genre].artists[i] == artistId) genreArr.push(_genres[genre].toString());
-                        };
-                    };
-
-                    return genreArr;
-                }
-            }
-            return factory;
-
-        })
-
-        App.service('genreFactory', function($http, $q, trackFactory){
+        App.service('genreFactory', function($rootScope, $http, $q, artistFactory){
 
 
             var _genres = {},
+                _undefinedArtists = [],
 
                 _init = function(){
-                    console.log('init genreFactory');
+                    //get genres from localstorage
                     var _oldGenres = JSON.parse(localStorage.getItem('genres'));
                     _genres = _oldGenres || {};
-                    console.log(_genres)
                 },
 
                 _saveGenres = function(){
                     localStorage.setItem('genres', JSON.stringify(_genres));
                 },
-                _update = function(artistId, genre){
-                    trackFactory.addGenre(artistId, genre);    
+
+                _updateArtist = function(artistId, genre){
+                    artistFactory.addGenre(artistId, genre);    
                 },
+
+                _addGenres = function(genresData){
+                    for(var j = 0; j < genresData.length; j++){
+                        var genre = genresData[j].name || genresData[j];
+
+                        //remove spaces
+                        genre = genre.split(" ").join("_");
+                        
+
+                        //if doesn't exist already add it to _genres object
+                        if(!_genres.hasOwnProperty(genre)) {
+                            _genres[genre] = {
+                                'artists' : [artistId],
+                            }
+                        }
+
+                        //if genre exists add artist id
+                        else{
+                            _genres[genre].artists.push(artistId)
+                        }
+                    }
+
+
+                    // if no genre found empty array returned. Therefore need to test if genre was created.
+                    if(_genres[genre]){
+
+                        //update the artist object by adding the genre
+                        _updateArtist(artistId, genre);
+
+                        //save new genre to localstorage
+                        _saveGenres();                                        
+                    } 
+                },
+
                 factory = {
                     /*
                     data: Object
@@ -95,64 +188,93 @@ require([
                             artist: Object
                                 genres: []
                     */
+                    getGenreArr : function(){
+                        var genreArr = [];
+                        for (var genre in _genres) {
+                            var name = genre.split("_").join(" ");
+                            genreArr.push({name : name, id : genre, checked : 'false'});
+                        }
+                        return genreArr;    
+                    },
+
+                    getUndefinedArtists : function(){
+                        return _undefinedArtists;
+                    },
+
                     getArtistGenres : function(artistId){
                         var genreArr = [];
 
+                        /*
+                            check if genre got artist
+                        */
+
                         for (var genre in _genres) {
+                            // each artist for a genre
                             for (var i = 0; i < _genres[genre].artists.length; i++) {
                                 if(_genres[genre].artists[i] == artistId) {
+                                    //add each genre to the genreArr
                                     genreArr.push(genre.toString());
-                                    _update(artistId, genre)
-                                    break;
+
+                                    //update the artist object by adding the genre
+                                    _updateArtist(artistId, genre)
+                                    
                                 }
                             };
                         };
-                        _saveGenres();
-
 
                         return genreArr;
                     },
 
-                    getGenres : function(artistId, i){
-                        if(factory.getArtistGenres(artistId).length > 0){
-                            var deferred = $q.defer();
-                            deferred.resolve(i);
-                            return deferred.promise;
-                        }
-                        else{
-                            var getURL = 'http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:' + artistId + '&bucket=genre'
-                            return $http.get(getURL).then(function(data){
-                                if(data.data.response.artist){
-                                    var genresData = data.data.response.artist.genres;
-                                    for(var j = 0; j < genresData.length; j++){
-                                        var genre = genresData[j].name;
-                                        genre = genre.split(" ").join("_");
-                                            
-                                        if(!_genres.hasOwnProperty(genre)) {
-                                            _genres[genre] = {
-                                                'count' : 1,
-                                                'artists' : [artistId],
-                                                'tracks' : []  
-                                            }
-                                        }
+                    getGenresObject : function(){
+                        return _genres;
+                    },
 
-                                        else{
-                                            _genres[genre].count = _genres[genre].count + 1;
-                                            _genres[genre].artists.push(artistId)
-                                        }
-                                    }
-                                    // if no genre found empty array returned. Therefore need to test if genre was created.
-                                    if(_genres[genre]){
-                                        _genres[genre].tracks = _genres[genre].tracks.concat(trackFactory.getTracks(artistId));
-                                        _update(artistId, genre);
-                                        _saveGenres();                                        
-                                    } 
-                                }
-                                
-    
-                                return i;
-                            })
+                    getGenresFromEchoNest : function(artistId, i){
+                        var getURL = 'http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:' + artistId + '&bucket=genre'
+                        return $http.get(getURL).then(function(data){
+                            console.log(data)
+                            console.log('calling echo')
+
+                            if(data.data.response.artist){
+                                var genresData = data.data.response.artist.genres;
+                                _addGenres(genresData);
+                            }
+                            
+                            //return index so we can continue looping
+                            return i;
+                        })
+                    },
+
+                    getGenres : function(artistId, i){
+                        var deferred = $q.defer();
+
+                        if(factory.getArtistGenres(artistId).length > 0){
+                            deferred.resolve(i);
                         }
+
+                        else {
+                            models.Artist.fromURI('spotify:artist:' + artistId)
+                                .load(['name', 'genres', 'years'])
+                                .done(function(artists){
+                                    if(artists.genres.length > 0){
+                                        console.log('From spotify')
+                                        _addGenres(artists.genres);
+
+                                        $rootScope.$apply(function(){
+                                            deferred.resolve(i);
+                                        });
+                                    }
+                                    else{
+                                        console.log('added to undefined')
+                                        _undefinedArtists.push(artistId);
+                                        $rootScope.$apply(function(){
+                                            deferred.resolve(i);
+                                        });
+                                    }
+                                })
+                        }
+                        return deferred.promise;
+    
                     }
                 }
 
@@ -161,22 +283,18 @@ require([
             return factory;
         });
 
-        App.service('trackFactory', function($q, $rootScope){
-
-/*          var foo = localStorage.getItem("bar");
-            localStorage.setItem("bar", foo);*/
+        App.service('artistFactory', function($q, $rootScope){
 
             var _library = Library.forCurrentUser(),
-                _artists = {},
+                _artists = {}, 
                 _artistArr = [],
 
                 _init = function(){
-                    console.log('init trackFactory')
+                    console.log('init artistFactory')
                 },
 
                 _saveArtists = function(){
                     localStorage.setItem('artist', JSON.stringify(_artists));
-                    console.log('saved artists to localstorage')
                 },
                 
                 factory = {
@@ -187,6 +305,9 @@ require([
                     getTracks : function(artistId){
                         return _artists[artistId].tracks
                     },
+                    getArtists : function(){
+                        return _artists;
+                    },
                     getArtistsArray : function(){
                         return _artistArr;
                     },
@@ -194,13 +315,15 @@ require([
 
                     },
                     getStarredTracks : function(){
-                    var deferred = $q.defer();
+                        var deferred = $q.defer();
                         /*
                             Would rather use starred property but is of type Playlist rather than Collection and therefor doesn't support snapshot() 
                         */
                         _library.tracks.snapshot().done(function(snapshot) {
+                            console.log('lib')
                             for (var i = 0; i < snapshot.length; i++) {
                                 snapshot.get(i).load('name').done(function(track) {
+                                    //only get starred tracks
                                     if(track.starred){
                                         var trackUri = track.uri; //spotify:track:TRACKID
                                         trackUri = trackUri.substr(trackUri.lastIndexOf(':') + 1); //TRACKID;
@@ -208,21 +331,22 @@ require([
                                         
                                         for(var j = 0; j < artistsData.length; j++){  
                                             var artistUrl = artistsData[j].uri; //spotify:artist:ARTISTID
-                                            if(artistUrl.indexOf('local') < 0){
+                                            if(artistUrl.indexOf('local') < 0){ //make sure it's not a local file
+                                                
                                                 artistUrl = artistUrl.substr(artistUrl.lastIndexOf(':') + 1); //ARTISTID
 
+                                                //if artist not already exists
                                                 if(!_artists.hasOwnProperty(artistUrl)) {
                                                     _artists[artistUrl] = {
-                                                        'count' : 1,
                                                         'tracks' : [trackUri],
                                                         'genres' : [],
                                                         'name' : artistsData[j].name   
                                                     }
-                                                    _artistArr.push(artistUrl)
+                                                    _artistArr.push(artistUrl) // add each artist once to _artistArr
                                                 }
 
                                                 else{
-                                                    _artists[artistUrl].count = _artists[artistUrl].count + 1;
+                                                    //if artist already been added, add track
                                                     _artists[artistUrl].tracks.push(trackUri);
                                                 }
                                             }
@@ -230,9 +354,8 @@ require([
                                     }              
                                 });
                             }
-                            console.log('loop done')
                         }).done(function(){
-                            _saveArtists();
+                            //_saveArtists(); //save to localstorage, not sure why yet
 
                             $rootScope.$apply(function(){
                                 deferred.resolve(factory.getArtistsArray());
@@ -249,51 +372,6 @@ require([
 
     
         angular.bootstrap(document.body , ['genreApp']); 
-        
-
-
-    function getGenres(){
-        var j = 0;
-        var artistId = artistArr[j];
-
-        /*$http.get('http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:" + artistId + "&bucket=genre"')
-            .success(function(data){
-                console.log(data)
-            });*/
-
-        //console.log('- artist ' + (j + 1) + ' of ' + (artistArr.length + 1);
-        /*
-        $.ajax({
-          url: "http://developer.echonest.com/api/v4/artist/profile?api_key=DXO7V5Z3LOXLCDE4M&id=spotify-WW:artist:" + artistId + "&bucket=genre",
-        }).done(function(data) {
-            if(data.response.artist){
-              var genresData = data.response.artist.genres;
-              for(var i = 0; i < genresData.length; i++){  
-                var genre = genresData[i].name;
-                genre = genre.split(" ").join("_");
-                        
-                if(!genres.hasOwnProperty(genre)) {
-                  genres[genre] = {
-                  'count' : 1,
-                  'artists' : [artistId],
-                  'tracks' : []  
-                  }
-                }
-                  
-                else{
-                  genres[genre].count = genres[genre].count + 1;
-                  genres[genre].artists.push(artistId)
-                }
-
-                artists[artistId].genres.push(genre)        
-                genres[genre].tracks = genres[genre].tracks.concat(artists[artistId].tracks)
-              }
-            }
-            else console.log(artistId + ' failed')
-              j++;     
-              if(j < artistArr.length) getGenres();
-              else console.log(genres)
-        });  */
-    }
+    
 
 }); // require
