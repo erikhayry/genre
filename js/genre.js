@@ -53,6 +53,7 @@ require([
                     });
 
                 },
+
                 _unselectAll = function(genres){
                     for (var i = 0; i < $scope.genreArr.length; i++) {
                         for (var j = 0; j < genres.length; j++) {
@@ -63,6 +64,7 @@ require([
                         };
                     }
                 },
+
                 _selectAll = function(genres){
                     console.log(genres)
                     for (var i = 0; i < $scope.genreArr.length; i++) {
@@ -89,7 +91,6 @@ require([
                     var size = artists.length;                    
                     for (var i = 0; i < size; i++) {
                         var _i = i;
-                        $scope.status = 'Loading genres... ' + _i + '/ 160';
                         genreFactory.getGenres(artists[i], _i).then(function(index){
                             if(index === size - 1) {
                                 deferred.resolve();
@@ -99,22 +100,23 @@ require([
                     return deferred.promise;
 
                 })
-                /*.then(function(){
+                .then(function(){
                     console.log('get undefined')
                     var deferred = $q.defer(),
                         undefinedArtists = genreFactory.getUndefinedArtists();
 
-                    //get genres for X first artists                    
-                    for (var i = 0; i < 5; i++) {
+                    //get genres for X first artists
+                    var size = 20;                    
+                    for (var i = 0; i < size; i++) {
                         var _i = i;
                         genreFactory.getGenresFromEchoNest(undefinedArtists[i], _i).then(function(index){
-                            if(index === 5 - 1) {
+                            if(index === size - 1) {
                                 deferred.resolve();
                             }
                         });
                     };
                     return deferred.promise;
-                })*/
+                })
                 .then(function(what){
                     console.log('got all data');
                     $scope.status = ''
@@ -148,12 +150,13 @@ require([
                     artistFactory.addGenre(artistId, genre);    
                 },
 
-                _addGenres = function(genresData){
+                _addGenres = function(genresData, artistId){
+                    console.log(artistId)
                     for(var j = 0; j < genresData.length; j++){
                         var genre = genresData[j].name || genresData[j];
 
                         //remove spaces
-                        genre = genre.split(" ").join("_");
+                        genre = genre.split(" ").join("_").toLowerCase();
                         
 
                         //if doesn't exist already add it to _genres object
@@ -164,7 +167,7 @@ require([
                         }
 
                         //if genre exists add artist id
-                        else{
+                        else if(artistId){
                             _genres[genre].artists.push(artistId)
                         }
                     }
@@ -237,7 +240,7 @@ require([
 
                             if(data.data.response.artist){
                                 var genresData = data.data.response.artist.genres;
-                                _addGenres(genresData);
+                                _addGenres(genresData, artistId);
                             }
                             
                             //return index so we can continue looping
@@ -258,7 +261,7 @@ require([
                                 .done(function(artists){
                                     if(artists.genres.length > 0){
                                         console.log('From spotify')
-                                        _addGenres(artists.genres);
+                                        _addGenres(artists.genres, artistId);
 
                                         $rootScope.$apply(function(){
                                             deferred.resolve(i);
@@ -267,6 +270,7 @@ require([
                                     else{
                                         console.log('added to undefined')
                                         _undefinedArtists.push(artistId);
+                                        
                                         $rootScope.$apply(function(){
                                             deferred.resolve(i);
                                         });

@@ -1,13 +1,11 @@
 <!DOCTYPE html>
 <html>
     <head>
-
         <style>
-            @import url('sp://genre/css/main.css');
             @import url('$views/css/buttons.css');
             @import url('$views/css/image.css');
             @import url('$views/css/list.css');
-            @import url('sp://genre/css/main.css');
+            @import url('sp://genre/css/style.css');
         </style>
     </head>
     <body ng-app="genreApp">
@@ -15,31 +13,44 @@
     <div id="playlist-metadata"></div>
 
         <div ng-controller="appController">
-            <div class="m-search-bar">
-                <input type="text" ng-model="query" placeholder="Enter a genre here">
-                <button class="m-button-primary" ng-click="buildPlaylist(checkedGenres)">Create playlist</button>    
-
-            </div>
 
             <div class="m-selected-genres">
                 <h2>Current selection</h2>
+                <button class="m-button-primary" ng-click="buildPlaylist(checkedGenres)">Create playlist</button>    
                 <div ng-repeat="genre in (checkedGenres = (genreArr | filter: {checked : 'true'}))">
-                    <label for="selected-{{genre.id}}">{{genre.name}}</label><input 
-                                                                        id="selected-{{genre.id}}"
-                                                                        type="checkbox" 
-                                                                        ng-model="genre.checked" 
-                                                                        ng-true-value="true" 
-                                                                        ng-false-value="false"> 
+                    <label for="selected-{{genre.id}}">{{genre.name}}</label>
+                    <input 
+                        id="selected-{{genre.id}}"
+                        type="checkbox" 
+                        ng-model="genre.checked" 
+                        ng-true-value="true" 
+                        ng-false-value="false"> 
                 </div>
             </div>
 
             <div class="m-search-result">
                 <h2>Genres</h2>
+                <div class="m-search-bar">
+                    <input type="text" ng-model="query" placeholder="Enter a genre here">
+                </div>
                 <button class="m-button-primary" ng-click="selectAll(visibleGenres)">Select All</button>
                 <button class="m-button-primary" ng-click="unselectAll(visibleGenres)">Un-select All</button>
+
+                <h3>order by</h3>
+                <button class="m-button-primary" ng-click="predicate = 'name'; reverse=false">A to Z</button>
+                <button class="m-button-primary" ng-click="predicate = '-name'; reverse=false">Z to A</button>
+
+                <button class="m-button-primary" ng-click="predicate = ''">Reset order</button>
+
                 {{status}}
-                <div ng-repeat="genre in (visibleGenres = (genreArr | filter : query))">
-                    <label for="{{genre.id}}">{{genre.name}}</label><input id="{{genre.id}}" type="checkbox" ng-model="genre.checked"  ng-true-value="true"  ng-false-value="false"> 
+                <div ng-repeat="genre in (visibleGenres = (genreArr | filter : query | orderBy:predicate:reverse))">
+                    <label for="{{genre.id}}">{{genre.name}}</label>
+                    <input 
+                        id="{{genre.id}}" 
+                        type="checkbox" 
+                        ng-model="genre.checked"  
+                        ng-true-value="true"  
+                        ng-false-value="false"> 
                 </div>
             </div>
 
@@ -47,6 +58,6 @@
 
 
         </div><!-- /wrapper -->
-        <script src="sp://genre/js/tutorial.js"></script>
+        <script src="sp://genre/js/genre.js"></script>
     </body>
 </html>

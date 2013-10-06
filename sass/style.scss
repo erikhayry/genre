@@ -1,0 +1,17 @@
+$box-padding: 10px;
+
+*{
+	box-sizing: border-box;
+}
+
+.m-selected-genres{
+	float: left;
+	width: 30%;
+	padding: $box-padding;
+}
+
+.m-search-result{
+	float: left;
+	width: 70%;
+	padding: $box-padding;
+}

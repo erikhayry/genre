@@ -1,0 +1,18 @@
+/* line 3, ../sass/style.scss */
+* {
+  box-sizing: border-box;
+}
+
+/* line 7, ../sass/style.scss */
+.m-selected-genres {
+  float: left;
+  width: 30%;
+  padding: 10px;
+}
+
+/* line 13, ../sass/style.scss */
+.m-search-result {
+  float: left;
+  width: 70%;
+  padding: 10px;
+}
